@@ -125,6 +125,12 @@ pub enum StatusMessage {
     SetSpeed(f64),
 }
 
+pub enum ControllerMessage {
+    ConfigChanged(config::Configuration),
+    Stop,
+    Exit,
+}
+
 pub enum CommandMessage {
     SetSpeed { speed: f64 },
     Exit,
@@ -147,14 +153,6 @@ pub enum ProcessingState {
     Starting,
     // Capture device isnt providing data, processing is stalled.
     Stalled,
-}
-
-pub struct ExitRequest {}
-
-impl ExitRequest {
-    pub const NONE: usize = 0;
-    pub const EXIT: usize = 1;
-    pub const STOP: usize = 2;
 }
 
 #[derive(Clone, Debug)]
