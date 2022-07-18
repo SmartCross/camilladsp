@@ -10,6 +10,8 @@ use std::fs::File;
 use std::io::BufReader;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::Mutex;
 use std::sync::RwLock;
 
 //type SmpFmt = i16;
@@ -1411,4 +1413,31 @@ pub fn get_used_capture_channels(conf: &Configuration) -> Vec<bool> {
     }
     let capture_channels = conf.devices.capture.channels();
     vec![true; capture_channels]
+}
+
+pub fn load_cfg_from_file(
+    config_path: &Arc<Mutex<Option<String>>>,
+    new_config_shared: &Arc<Mutex<Option<Configuration>>>,
+) {
+    let path = config_path.lock().unwrap().clone();
+
+    if let Some(file) = path {
+        match load_config(&file) {
+            Ok(mut conf) => match validate_config(&mut conf, Some(&file)) {
+                Ok(()) => {
+                    *new_config_shared.lock().unwrap() = Some(conf);
+                }
+                Err(err) => {
+                    error!("Invalid config file!");
+                    error!("{}", err);
+                }
+            },
+            Err(err) => {
+                error!("Config file error:");
+                error!("{}", err);
+            }
+        }
+    } else {
+        error!("No config file path set");
+    }
 }

@@ -104,54 +104,7 @@ pub fn custom_logger_format(
     )
 }
 
-fn get_new_config(
-    config_path: &Arc<Mutex<Option<String>>>,
-    new_config_shared: &Arc<Mutex<Option<config::Configuration>>>,
-) -> Res<config::Configuration> {
-    let new_conf = new_config_shared.lock().unwrap().clone();
-    let path = config_path.lock().unwrap().clone();
-
-    //new_config is not None, this is the one to use
-    if let Some(mut conf) = new_conf {
-        debug!("Reload using config from websocket");
-        match config::validate_config(&mut conf, None) {
-            Ok(()) => {
-                debug!("Config valid");
-                Ok(conf)
-            }
-            Err(err) => {
-                error!("Invalid config file!");
-                error!("{}", err);
-                Err(err)
-            }
-        }
-    } else if let Some(file) = path {
-        match config::load_config(&file) {
-            Ok(mut conf) => match config::validate_config(&mut conf, Some(&file)) {
-                Ok(()) => {
-                    debug!("Reload using config file");
-                    Ok(conf)
-                }
-                Err(err) => {
-                    error!("Invalid config file!");
-                    error!("{}", err);
-                    Err(err)
-                }
-            },
-            Err(err) => {
-                error!("Config file error:");
-                error!("{}", err);
-                Err(err)
-            }
-        }
-    } else {
-        error!("No new config supplied and no path set");
-        Err(config::ConfigError::new("No new config supplied and no path set").into())
-    }
-}
-
 fn run(
-    signal_reload: Arc<AtomicBool>,
     signal_exit: Arc<AtomicUsize>,
     active_config_shared: Arc<Mutex<Option<config::Configuration>>>,
     config_path: Arc<Mutex<Option<String>>>,
@@ -191,8 +144,6 @@ fn run(
     let mut active_config = conf;
     //let conf_yaml = serde_yaml::to_string(&active_config).unwrap();
     *active_config_shared.lock().unwrap() = Some(active_config.clone());
-    *new_config_shared.lock().unwrap() = None;
-    signal_reload.store(false, Ordering::Relaxed);
     signal_exit.store(ExitRequest::NONE, Ordering::Relaxed);
 
     // Processing thread
@@ -231,6 +182,7 @@ fn run(
 
     let mut pb_ready = false;
     let mut cap_ready = false;
+    let signal_reload = Arc::new(AtomicBool::new(false));
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     signal_hook::flag::register(signal_hook::consts::SIGHUP, Arc::clone(&signal_reload))?;
     signal_hook::flag::register_usize(
@@ -240,13 +192,13 @@ fn run(
     )?;
 
     loop {
-        if signal_reload.load(Ordering::Relaxed) {
-            debug!("Reloading configuration...");
-            signal_reload.store(false, Ordering::Relaxed);
-            let new_config = get_new_config(&config_path, &new_config_shared);
-
-            match new_config {
-                Ok(conf) => {
+        if !is_starting {
+            if signal_reload.load(Ordering::Relaxed) {
+                signal_reload.store(false, Ordering::Relaxed);
+                config::load_cfg_from_file(&config_path, &new_config_shared);
+            }
+            match new_config_shared.lock().unwrap().clone() {
+                Some(conf) => {
                     let comp = config::config_diff(&active_config, &conf);
                     match comp {
                         config::ConfigChange::Pipeline
@@ -255,7 +207,6 @@ fn run(
                             tx_pipeconf.send((comp, conf.clone())).unwrap();
                             active_config = conf;
                             *active_config_shared.lock().unwrap() = Some(active_config.clone());
-                            *new_config_shared.lock().unwrap() = None;
                             let used_channels = config::get_used_capture_channels(&active_config);
                             debug!("Using channels {:?}", used_channels);
                             status_structs.capture.write().unwrap().used_channels = used_channels;
@@ -270,22 +221,17 @@ fn run(
                             pb_handle.join().unwrap();
                             trace!("Wait for cap..");
                             cap_handle.join().unwrap();
-                            *new_config_shared.lock().unwrap() = Some(conf);
                             trace!("All threads stopped, returning");
                             return Ok(ExitState::Restart);
                         }
                         config::ConfigChange::None => {
-                            debug!("No changes in config.");
-                            *new_config_shared.lock().unwrap() = None;
                         }
                     };
                 }
-                Err(err) => {
-                    error!("Config file error: {}", err);
+                None => {
+                    warn!("No config!");
                 }
             };
-        }
-        if !is_starting {
             match signal_exit.load(Ordering::Relaxed) {
                 ExitRequest::EXIT => {
                     debug!("Exit requested...");
@@ -786,7 +732,6 @@ fn main_process() -> i32 {
 
     let wait = matches.is_present("wait");
 
-    let signal_reload = Arc::new(AtomicBool::new(false));
     let signal_exit = Arc::new(AtomicUsize::new(0));
     let capture_status = Arc::new(RwLock::new(CaptureStatus {
         measured_samplerate: 0,
@@ -831,7 +776,6 @@ fn main_process() -> i32 {
             let serveraddress = matches.value_of("address").unwrap_or("127.0.0.1");
             let serverport = port_str.parse::<usize>().unwrap();
             let shared_data = socketserver::SharedData {
-                signal_reload: signal_reload.clone(),
                 signal_exit: signal_exit.clone(),
                 active_config: active_config.clone(),
                 active_config_path: active_config_path.clone(),
@@ -866,32 +810,11 @@ fn main_process() -> i32 {
             if signal_exit.load(Ordering::Relaxed) == ExitRequest::EXIT {
                 // exit requested
                 return EXIT_OK;
-            } else if signal_reload.load(Ordering::Relaxed) {
-                debug!("Reloading configuration...");
-                signal_reload.store(false, Ordering::Relaxed);
-                let conf_loaded = get_new_config(&active_config_path, &new_config);
-                match conf_loaded {
-                    Ok(conf) => {
-                        debug!(
-                            "Loaded config file: {:?}",
-                            active_config_path.lock().unwrap()
-                        );
-                        *new_config.lock().unwrap() = Some(conf);
-                    }
-                    Err(err) => {
-                        error!(
-                            "Could not load config: {:?}, error: {}",
-                            active_config_path.lock().unwrap(),
-                            err
-                        );
-                    }
-                }
-            }
+            } 
             thread::sleep(delay);
         }
         debug!("Config ready");
         let exitstatus = run(
-            signal_reload.clone(),
             signal_exit.clone(),
             active_config.clone(),
             active_config_path.clone(),

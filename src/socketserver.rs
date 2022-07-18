@@ -7,7 +7,7 @@ use std::fs::File;
 #[cfg(feature = "secure-websocket")]
 use std::io::Read;
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -27,7 +27,6 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct SharedData {
-    pub signal_reload: Arc<AtomicBool>,
     pub signal_exit: Arc<AtomicUsize>,
     pub active_config: Arc<Mutex<Option<config::Configuration>>>,
     pub active_config_path: Arc<Mutex<Option<String>>>,
@@ -473,9 +472,7 @@ fn handle_command(
 ) -> Option<WsReply> {
     match command {
         WsCommand::Reload => {
-            shared_data_inst
-                .signal_reload
-                .store(true, Ordering::Relaxed);
+            config::load_cfg_from_file(&shared_data_inst.active_config_path, &shared_data_inst.new_config);
             Some(WsReply::Reload {
                 result: WsResult::Ok,
             })
@@ -800,9 +797,6 @@ fn handle_command(
                 Ok(mut conf) => match config::validate_config(&mut conf, None) {
                     Ok(()) => {
                         *shared_data_inst.new_config.lock().unwrap() = Some(conf);
-                        shared_data_inst
-                            .signal_reload
-                            .store(true, Ordering::Relaxed);
                         Some(WsReply::SetConfig {
                             result: WsResult::Ok,
                         })
@@ -827,9 +821,6 @@ fn handle_command(
                 Ok(mut conf) => match config::validate_config(&mut conf, None) {
                     Ok(()) => {
                         *shared_data_inst.new_config.lock().unwrap() = Some(conf);
-                        shared_data_inst
-                            .signal_reload
-                            .store(true, Ordering::Relaxed);
                         Some(WsReply::SetConfigJson {
                             result: WsResult::Ok,
                         })
