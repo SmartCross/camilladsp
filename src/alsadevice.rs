@@ -11,6 +11,8 @@ use alsa::hctl::HCtl;
 use alsa::pcm::{Access, Format, Frames, HwParams};
 use alsa::{Direction, ValueOr, PCM};
 use alsa_sys;
+use nix::libc::{sched_setscheduler, sched_param};
+use nix::unistd::gettid;
 use rubato::VecResampler;
 use std::ffi::CString;
 use std::fmt::Debug;
@@ -896,6 +898,10 @@ impl PlaybackDevice for AlsaPlaybackDevice {
         let handle = thread::Builder::new()
             .name("AlsaPlayback".to_string())
             .spawn(move || {
+                unsafe {
+                    let x = sched_param {sched_priority : 80};
+                    sched_setscheduler(i32::from(gettid()), nix::libc::SCHED_RR, &x);
+                }
                 match open_pcm(
                     devname,
                     samplerate as u32,
