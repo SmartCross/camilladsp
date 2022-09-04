@@ -7,17 +7,15 @@ use std::fs::File;
 #[cfg(feature = "secure-websocket")]
 use std::io::Read;
 use std::net::{TcpListener, TcpStream};
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 use tungstenite::accept;
 use tungstenite::Message;
 use tungstenite::WebSocket;
 
-use crate::config;
+use crate::{config, ControllerMessage};
 use crate::helpers::linear_to_db;
-use crate::ExitRequest;
 use crate::ProcessingState;
 use crate::Res;
 use crate::{
@@ -27,11 +25,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct SharedData {
-    pub signal_exit: Arc<AtomicUsize>,
-    pub active_config: Arc<Mutex<Option<config::Configuration>>>,
-    pub active_config_path: Arc<Mutex<Option<String>>>,
-    pub new_config: Arc<Mutex<Option<config::Configuration>>>,
-    pub previous_config: Arc<Mutex<Option<config::Configuration>>>,
+    pub command_sender: crossbeam::channel::Sender<ControllerMessage>,
     pub capture_status: Arc<RwLock<CaptureStatus>>,
     pub playback_status: Arc<RwLock<PlaybackStatus>>,
     pub processing_status: Arc<RwLock<ProcessingParameters>>,
@@ -58,17 +52,17 @@ pub struct ServerParameters<'a> {
 
 #[derive(Debug, PartialEq, Deserialize)]
 enum WsCommand {
-    SetConfigName(String),
-    SetConfig(String),
+    // SetConfigName(String),
+    // SetConfig(String),
     SetConfigJson(String),
-    Reload,
-    GetConfig,
-    GetPreviousConfig,
-    ReadConfig(String),
-    ReadConfigFile(String),
+    // Reload,
+    // GetConfig,
+    // GetPreviousConfig,
+    // ReadConfig(String),
+    // ReadConfigFile(String),
     ValidateConfig(String),
-    GetConfigJson,
-    GetConfigName,
+    // GetConfigJson,
+    // GetConfigName,
     GetSignalRange,
     GetCaptureSignalRms,
     GetCaptureSignalRmsSince(f32),
@@ -130,43 +124,10 @@ struct PbCapLevels {
 
 #[derive(Debug, PartialEq, Serialize)]
 enum WsReply {
-    SetConfigName {
-        result: WsResult,
-    },
-    SetConfig {
-        result: WsResult,
-    },
     SetConfigJson {
         result: WsResult,
     },
-    Reload {
-        result: WsResult,
-    },
-    GetConfig {
-        result: WsResult,
-        value: String,
-    },
-    GetPreviousConfig {
-        result: WsResult,
-        value: String,
-    },
-    ReadConfig {
-        result: WsResult,
-        value: String,
-    },
-    ReadConfigFile {
-        result: WsResult,
-        value: String,
-    },
     ValidateConfig {
-        result: WsResult,
-        value: String,
-    },
-    GetConfigJson {
-        result: WsResult,
-        value: String,
-    },
-    GetConfigName {
         result: WsResult,
         value: String,
     },
@@ -471,12 +432,6 @@ fn handle_command(
     local_data: &mut LocalData,
 ) -> Option<WsReply> {
     match command {
-        WsCommand::Reload => {
-            config::load_cfg_from_file(&shared_data_inst.active_config_path, &shared_data_inst.new_config);
-            Some(WsReply::Reload {
-                result: WsResult::Ok,
-            })
-        }
         WsCommand::GetCaptureRate => {
             let capstat = shared_data_inst.capture_status.read().unwrap();
             Some(WsReply::GetCaptureRate {
@@ -755,72 +710,11 @@ fn handle_command(
                 value: procstat.mute,
             })
         }
-        WsCommand::GetConfig => Some(WsReply::GetConfig {
-            result: WsResult::Ok,
-            value: serde_yaml::to_string(&*shared_data_inst.active_config.lock().unwrap()).unwrap(),
-        }),
-        WsCommand::GetPreviousConfig => Some(WsReply::GetPreviousConfig {
-            result: WsResult::Ok,
-            value: serde_yaml::to_string(&*shared_data_inst.previous_config.lock().unwrap())
-                .unwrap(),
-        }),
-        WsCommand::GetConfigJson => Some(WsReply::GetConfigJson {
-            result: WsResult::Ok,
-            value: serde_json::to_string(&*shared_data_inst.active_config.lock().unwrap()).unwrap(),
-        }),
-        WsCommand::GetConfigName => Some(WsReply::GetConfigName {
-            result: WsResult::Ok,
-            value: shared_data_inst
-                .active_config_path
-                .lock()
-                .unwrap()
-                .as_ref()
-                .unwrap_or(&"NONE".to_string())
-                .to_string(),
-        }),
-        WsCommand::SetConfigName(path) => match config::load_validate_config(&path) {
-            Ok(_) => {
-                *shared_data_inst.active_config_path.lock().unwrap() = Some(path.clone());
-                Some(WsReply::SetConfigName {
-                    result: WsResult::Ok,
-                })
-            }
-            Err(error) => {
-                error!("Error setting config name: {}", error);
-                Some(WsReply::SetConfigName {
-                    result: WsResult::Error,
-                })
-            }
-        },
-        WsCommand::SetConfig(config_yml) => {
-            match serde_yaml::from_str::<config::Configuration>(&config_yml) {
-                Ok(mut conf) => match config::validate_config(&mut conf, None) {
-                    Ok(()) => {
-                        *shared_data_inst.new_config.lock().unwrap() = Some(conf);
-                        Some(WsReply::SetConfig {
-                            result: WsResult::Ok,
-                        })
-                    }
-                    Err(error) => {
-                        error!("Error setting config: {}", error);
-                        Some(WsReply::SetConfig {
-                            result: WsResult::Error,
-                        })
-                    }
-                },
-                Err(error) => {
-                    error!("Config error: {}", error);
-                    Some(WsReply::SetConfig {
-                        result: WsResult::Error,
-                    })
-                }
-            }
-        }
         WsCommand::SetConfigJson(config_json) => {
             match serde_json::from_str::<config::Configuration>(&config_json) {
                 Ok(mut conf) => match config::validate_config(&mut conf, None) {
                     Ok(()) => {
-                        *shared_data_inst.new_config.lock().unwrap() = Some(conf);
+                        shared_data_inst.command_sender.send(ControllerMessage::ConfigChanged(conf)).unwrap();
                         Some(WsReply::SetConfigJson {
                             result: WsResult::Ok,
                         })
@@ -840,34 +734,6 @@ fn handle_command(
                 }
             }
         }
-        WsCommand::ReadConfig(config_yml) => {
-            match serde_yaml::from_str::<config::Configuration>(&config_yml) {
-                Ok(conf) => Some(WsReply::ReadConfig {
-                    result: WsResult::Ok,
-                    value: serde_yaml::to_string(&conf).unwrap(),
-                }),
-                Err(error) => {
-                    error!("Error reading config: {}", error);
-                    Some(WsReply::ReadConfig {
-                        result: WsResult::Error,
-                        value: error.to_string(),
-                    })
-                }
-            }
-        }
-        WsCommand::ReadConfigFile(path) => match config::load_config(&path) {
-            Ok(conf) => Some(WsReply::ReadConfigFile {
-                result: WsResult::Ok,
-                value: serde_yaml::to_string(&conf).unwrap(),
-            }),
-            Err(error) => {
-                error!("Error reading config file: {}", error);
-                Some(WsReply::ReadConfigFile {
-                    result: WsResult::Error,
-                    value: error.to_string(),
-                })
-            }
-        },
         WsCommand::ValidateConfig(config_yml) => {
             match serde_yaml::from_str::<config::Configuration>(&config_yml) {
                 Ok(mut conf) => match config::validate_config(&mut conf, None) {
@@ -893,18 +759,13 @@ fn handle_command(
             }
         }
         WsCommand::Stop => {
-            *shared_data_inst.new_config.lock().unwrap() = None;
-            shared_data_inst
-                .signal_exit
-                .store(ExitRequest::STOP, Ordering::Relaxed);
+            shared_data_inst.command_sender.send(ControllerMessage::Stop).unwrap();
             Some(WsReply::Stop {
                 result: WsResult::Ok,
             })
         }
         WsCommand::Exit => {
-            shared_data_inst
-                .signal_exit
-                .store(ExitRequest::EXIT, Ordering::Relaxed);
+            shared_data_inst.command_sender.send(ControllerMessage::Exit).unwrap();
             Some(WsReply::Exit {
                 result: WsResult::Ok,
             })
@@ -1165,27 +1026,5 @@ fn get_capture_signal_rms(shared_data: &SharedData) -> Vec<f32> {
             record.values
         }
         None => vec![],
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::socketserver::{parse_command, WsCommand};
-    use tungstenite::Message;
-
-    #[test]
-    fn parse_commands() {
-        let cmd = Message::text("\"Reload\"");
-        let res = parse_command(cmd).unwrap();
-        assert_eq!(res, WsCommand::Reload);
-        let cmd = Message::text("asdfasdf");
-        let res = parse_command(cmd);
-        assert!(res.is_err());
-        let cmd = Message::text("");
-        let res = parse_command(cmd);
-        assert!(res.is_err());
-        let cmd = Message::text("{\"SetConfigName\": \"somefile\"}");
-        let res = parse_command(cmd).unwrap();
-        assert_eq!(res, WsCommand::SetConfigName("somefile".to_string()));
     }
 }
