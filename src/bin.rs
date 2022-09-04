@@ -618,7 +618,7 @@ fn main_process() -> i32 {
             .start()
             .unwrap()
     };
-    info!("CamillaDSP version {}", crate_version!());
+    info!("CamillaDSP version {} (Customized for SmartCross)", crate_version!());
     info!(
         "Running on {}, {}",
         std::env::consts::OS,
