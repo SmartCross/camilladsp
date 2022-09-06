@@ -711,16 +711,18 @@ fn main_process() -> i32 {
             }
         }
 
-        let exitstatus = run(status_structs.clone(), active_config.clone(), rx_ctrl.clone());
-        match exitstatus {
-            Ok(ExitState::Restart) => {
-                continue;
-            }
-            Ok(ExitState::Exit) => {
-                return EXIT_OK;
-            }
-            Err(e) => {
-                warn!("Error: {}", e);
+        if active_config.lock().unwrap().is_some() {
+            let exitstatus = run(status_structs.clone(), active_config.clone(), rx_ctrl.clone());
+            match exitstatus {
+                Ok(ExitState::Restart) => {
+                    continue;
+                }
+                Ok(ExitState::Exit) => {
+                    return EXIT_OK;
+                }
+                Err(e) => {
+                    warn!("Error: {}", e);
+                }
             }
         }
     }
