@@ -692,7 +692,8 @@ fn main_process() -> i32 {
     let active_config = Arc::new(Mutex::<Option<config::Configuration>>::new(None));
 
     loop {
-        debug!("Wait for config");
+        info!("Wait for config");
+        drop(sd_notify::notify(true, &[sd_notify::NotifyState::Ready]));
 
         let msg = rx_ctrl.recv();
         match msg {
@@ -712,6 +713,7 @@ fn main_process() -> i32 {
         }
 
         if active_config.lock().unwrap().is_some() {
+            info!("Got config, starting!");
             let exitstatus = run(status_structs.clone(), active_config.clone(), rx_ctrl.clone());
             match exitstatus {
                 Ok(ExitState::Restart) => {
