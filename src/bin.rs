@@ -723,51 +723,6 @@ fn main_process() -> i32 {
             }
         }
     }
-
-    /*
-    loop {
-        debug!("Wait for config");
-        while new_config.lock().unwrap().is_none() {
-            if !wait {
-                debug!("No config and not in wait mode, exiting!");
-                return EXIT_OK;
-            }
-            trace!("waiting...");
-            if signal_exit.load(Ordering::Relaxed) == ExitRequest::EXIT {
-                // exit requested
-                return EXIT_OK;
-            }
-            thread::sleep(delay);
-        }
-        debug!("Config ready");
-        let exitstatus = run(
-            signal_exit.clone(),
-            active_config.clone(),
-            active_config_path.clone(),
-            new_config.clone(),
-            previous_config.clone(),
-            status_structs.clone(),
-        );
-        match exitstatus {
-            Err(e) => {
-                *active_config.lock().unwrap() = None;
-                error!("({}) {}", e.to_string(), e);
-                if !wait {
-                    return EXIT_PROCESSING_ERROR;
-                }
-            }
-            Ok(ExitState::Exit) => {
-                debug!("Exiting");
-                *active_config.lock().unwrap() = None;
-                return EXIT_OK;
-            }
-            Ok(ExitState::Restart) => {
-                *active_config.lock().unwrap() = None;
-                debug!("Restarting with new config");
-            }
-        };
-    }
-    */
 }
 
 fn main() {
