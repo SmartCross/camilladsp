@@ -109,13 +109,7 @@ fn run(
 ) -> Res<ExitState> {
     status_structs.capture.write().unwrap().state = ProcessingState::Starting;
     let mut is_starting = true;
-    let conf = match active_config.lock().unwrap().clone() {
-        Some(cfg) => cfg,
-        None => {
-            error!("Tried to start without config!");
-            return Ok(ExitState::Exit);
-        }
-    };
+    let conf = active_config.lock().unwrap().clone().unwrap();
     let (tx_status, rx_status) = crossbeam::channel::unbounded::<StatusMessage>();
 
     let (tx_pb, rx_pb) = mpsc::sync_channel(conf.devices.queuelimit);
@@ -219,6 +213,7 @@ fn run(
                         trace!("Wait for cap..");
                         cap_handle.join().unwrap();
                         trace!("All threads stopped, stopping");
+                        *active_config.lock().unwrap() = None;
                         return Ok(ExitState::Restart);
                     }
                     Ok(ControllerMessage::Exit) => {
@@ -692,26 +687,6 @@ fn main_process() -> i32 {
     let active_config = Arc::new(Mutex::<Option<config::Configuration>>::new(None));
 
     loop {
-        info!("Wait for config");
-        drop(sd_notify::notify(true, &[sd_notify::NotifyState::Ready]));
-
-        let msg = rx_ctrl.recv();
-        match msg {
-            Ok(ControllerMessage::ConfigChanged(new_conf)) => {
-                *active_config.lock().unwrap() = Some(new_conf);
-            }
-            Ok(ControllerMessage::Stop) => {
-                *active_config.lock().unwrap() = None;
-            }
-            Ok(ControllerMessage::Exit) => {
-                return EXIT_OK;
-            }
-            Err(e) => {
-                warn!("Error {}", e);
-                return EXIT_FAILURE;
-            }
-        }
-
         if active_config.lock().unwrap().is_some() {
             info!("Got config, starting!");
             let exitstatus = run(status_structs.clone(), active_config.clone(), rx_ctrl.clone());
@@ -724,6 +699,26 @@ fn main_process() -> i32 {
                 }
                 Err(e) => {
                     warn!("Error: {}", e);
+                }
+            }
+        } else {
+            info!("Wait for config");
+            drop(sd_notify::notify(true, &[sd_notify::NotifyState::Ready]));
+    
+            let msg = rx_ctrl.recv();
+            match msg {
+                Ok(ControllerMessage::ConfigChanged(new_conf)) => {
+                    *active_config.lock().unwrap() = Some(new_conf);
+                }
+                Ok(ControllerMessage::Stop) => {
+                    *active_config.lock().unwrap() = None;
+                }
+                Ok(ControllerMessage::Exit) => {
+                    return EXIT_OK;
+                }
+                Err(e) => {
+                    warn!("Error {}", e);
+                    return EXIT_FAILURE;
                 }
             }
         }
