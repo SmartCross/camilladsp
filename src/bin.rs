@@ -109,7 +109,7 @@ fn run(
 ) -> Res<ExitState> {
     status_structs.capture.write().unwrap().state = ProcessingState::Starting;
     let mut is_starting = true;
-    let conf = active_config.lock().unwrap().clone().unwrap();
+    let mut conf = active_config.lock().unwrap().clone().unwrap();
     let (tx_status, rx_status) = crossbeam::channel::unbounded::<StatusMessage>();
 
     let (tx_pb, rx_pb) = mpsc::sync_channel(conf.devices.queuelimit);
@@ -178,6 +178,7 @@ fn run(
                             | config::ConfigChange::FilterParameters { .. } => {
                                 tx_pipeconf.send((comp, new_conf.clone())).unwrap();
                                 let used_channels = config::get_used_capture_channels(&new_conf);
+                                conf = new_conf.clone();
                                 *active_config.lock().unwrap() = Some(new_conf);
                                 debug!("Using channels {:?}", used_channels);
                                 status_structs.capture.write().unwrap().used_channels = used_channels;
