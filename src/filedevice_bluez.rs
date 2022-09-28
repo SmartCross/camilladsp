@@ -17,6 +17,10 @@ pub struct WrappedBluezFd {
 impl WrappedBluezFd {
     fn new_from_open_message(r: Arc<Message>) -> WrappedBluezFd {
         let (pipe_fd, ctrl_fd): (OwnedFd, OwnedFd) = r.body().unwrap();
+        let flag_i = nix::fcntl::fcntl(pipe_fd.as_raw_fd(), nix::fcntl::F_GETFL).unwrap();
+        let mut flag = nix::fcntl::OFlag::from_bits(flag_i).unwrap();
+        flag |= nix::fcntl::OFlag::O_NONBLOCK;
+        nix::fcntl::fcntl(pipe_fd.as_raw_fd(), nix::fcntl::F_SETFL(flag)).unwrap();
         return WrappedBluezFd {
             pipe_fd: pipe_fd,
             _ctrl_fd: ctrl_fd,
