@@ -472,7 +472,10 @@ fn capture_loop(
             }
         };
         let mut chunk = build_chunk(&buf[0..capture_bytes], &params, bytes_read);
-
+        trace!(
+            "CB: captured {} frames from file device",
+            chunk.frames
+        );
         value_range = chunk.maxval - chunk.minval;
         chunk_stats = chunk.get_stats();
         //trace!(
@@ -504,6 +507,10 @@ fn capture_loop(
                 chunk.valid_frames =
                     (chunk.frames as f32 * (bytes_read as f32 / capture_bytes as f32)) as usize;
                 chunk.waveforms = new_waves;
+                trace!(
+                    "CB: resampler resampled to {} frames",
+                    chunk.frames
+                );
             }
             let msg = AudioMessage::Audio(chunk);
             if msg_channels.audio.send(msg).is_err() {
