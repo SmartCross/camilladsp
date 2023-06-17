@@ -299,7 +299,7 @@ fn run(
                                 barrier.wait();
                             }
                             debug!("Wait for capture thread to exit..");
-                            status_structs.status.write().stop_reason = StopReason::PlaybackError(message);
+                            status_structs.status.write().stop_reason = StopReason::PlaybackError(message.to_string());
                             cap_handle.join().unwrap();
                             {
                                 let mut active_cfg_shared = shared_configs.active.lock();
@@ -308,7 +308,7 @@ fn run(
                                 *prev_cfg_shared = Some(active_config);
                             }
                             trace!("All threads stopped, returning");
-                            return Ok(ExitState::Restart);
+                            return Err(message);
                         }
                         StatusMessage::CaptureError(message) => {
                             error!("Capture error: {}", message);
@@ -317,7 +317,7 @@ fn run(
                                 barrier.wait();
                             }
                             debug!("Wait for playback thread to exit..");
-                            status_structs.status.write().stop_reason = StopReason::CaptureError(message);
+                            status_structs.status.write().stop_reason = StopReason::CaptureError(message.to_string());
                             pb_handle.join().unwrap();
                             {
                                 let mut active_cfg_shared = shared_configs.active.lock();
@@ -326,7 +326,8 @@ fn run(
                                 *prev_cfg_shared = Some(active_config);
                             }
                             trace!("All threads stopped, returning");
-                            return Ok(ExitState::Restart);
+                            // return Ok(ExitState::Restart);
+                            return Err(message);
                         }
                         StatusMessage::PlaybackFormatChange(rate) => {
                             error!("Playback stopped due to external format change");

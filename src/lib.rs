@@ -68,7 +68,7 @@ impl<PrcFmt> NewValue<PrcFmt> for PrcFmt {
     }
 }
 
-pub type Res<T> = Result<T, Box<dyn error::Error>>;
+pub type Res<T> = Result<T, Box<dyn error::Error + Sync + Send>>;
 
 #[cfg(target_os = "linux")]
 pub mod alsadevice;
@@ -118,8 +118,8 @@ pub mod wasapidevice;
 pub enum StatusMessage {
     PlaybackReady,
     CaptureReady,
-    PlaybackError(String),
-    CaptureError(String),
+    PlaybackError(Box<dyn error::Error + Sync + Send>),
+    CaptureError(Box<dyn error::Error + Sync + Send>),
     PlaybackFormatChange(usize),
     CaptureFormatChange(usize),
     PlaybackDone,

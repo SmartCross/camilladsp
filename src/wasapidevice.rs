@@ -688,7 +688,7 @@ impl PlaybackDevice for WasapiPlaybackDevice {
                     }
                     Err(err) => {
                         status_channel
-                            .send(StatusMessage::PlaybackError(err.to_string()))
+                            .send(StatusMessage::PlaybackError(err))
                             .unwrap_or(());
                         barrier.wait();
                         return;

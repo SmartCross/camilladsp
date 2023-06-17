@@ -384,7 +384,7 @@ impl PlaybackDevice for CoreaudioPlaybackDevice {
                     Ok(audio_unit) => audio_unit,
                     Err(err) => {
                         status_channel
-                            .send(StatusMessage::PlaybackError(err.to_string()))
+                            .send(StatusMessage::PlaybackError(err))
                             .unwrap_or(());
                         barrier.wait();
                         return;
@@ -444,7 +444,7 @@ impl PlaybackDevice for CoreaudioPlaybackDevice {
                     Ok(()) => {}
                     Err(err) => {
                         status_channel
-                            .send(StatusMessage::PlaybackError(err.to_string()))
+                            .send(StatusMessage::PlaybackError(err))
                             .unwrap_or(());
                         release_ownership(device_id).unwrap_or(());
                         barrier.wait();
@@ -468,7 +468,7 @@ impl PlaybackDevice for CoreaudioPlaybackDevice {
                     Ok(()) => {}
                     Err(err) => {
                         status_channel
-                            .send(StatusMessage::PlaybackError(err.to_string()))
+                            .send(StatusMessage::PlaybackError(err))
                             .unwrap_or(());
                         release_ownership(device_id).unwrap_or(());
                         return;
@@ -537,7 +537,7 @@ impl PlaybackDevice for CoreaudioPlaybackDevice {
                                 Err(err) => {
                                     error!("Playback device channel error: {err}");
                                     status_channel
-                                        .send(StatusMessage::PlaybackError(err.to_string()))
+                                        .send(StatusMessage::PlaybackError(err))
                                         .unwrap_or(());
                                     break;
                                 }
@@ -555,7 +555,7 @@ impl PlaybackDevice for CoreaudioPlaybackDevice {
                         Err(err) => {
                             error!("Message channel error: {err}");
                             status_channel
-                                .send(StatusMessage::PlaybackError(err.to_string()))
+                                .send(StatusMessage::PlaybackError(err))
                                 .unwrap_or(());
                             break;
                         }
@@ -637,7 +637,7 @@ impl CaptureDevice for CoreaudioCaptureDevice {
                     Ok(audio_unit) => audio_unit,
                     Err(err) => {
                         status_channel
-                            .send(StatusMessage::CaptureError(err.to_string()))
+                            .send(StatusMessage::CaptureError(err))
                             .unwrap_or(());
                         barrier.wait();
                         return;

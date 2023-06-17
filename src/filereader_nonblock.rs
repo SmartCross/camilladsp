@@ -36,7 +36,7 @@ impl<R: Read + AsRawFd> NonBlockingReader<R> {
 }
 
 impl<R: Read + AsRawFd> Reader for NonBlockingReader<R> {
-    fn read(&mut self, data: &mut [u8]) -> Result<ReadResult, Box<dyn Error>> {
+    fn read(&mut self, data: &mut [u8]) -> Result<ReadResult, Box<dyn Error + Sync + Send>> {
         let mut buf = &mut *data;
         let mut bytes_read = 0;
         let start = time::Instant::now();

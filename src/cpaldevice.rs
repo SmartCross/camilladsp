@@ -356,7 +356,7 @@ impl PlaybackDevice for CpalPlaybackDevice {
                         };
                         if let Err(err) = &stream {
                             status_channel
-                                .send(StatusMessage::PlaybackError(err.to_string()))
+                                .send(StatusMessage::PlaybackError(err))
                                 .unwrap();
                         }
                         barrier.wait();
@@ -364,7 +364,7 @@ impl PlaybackDevice for CpalPlaybackDevice {
                             match strm.play() {
                                 Ok(_) => debug!("Starting playback loop"),
                                 Err(err) => status_channel
-                                    .send(StatusMessage::PlaybackError(err.to_string()))
+                                    .send(StatusMessage::PlaybackError(err))
                                     .unwrap(),
                             }
                         }
@@ -424,7 +424,7 @@ impl PlaybackDevice for CpalPlaybackDevice {
                         }
                     }
                     Err(err) => {
-                        let send_result = status_channel.send(StatusMessage::PlaybackError(err.to_string()));
+                        let send_result = status_channel.send(StatusMessage::PlaybackError(err));
                         if send_result.is_err() {
                             error!("Playback error: {}", err);
                         }
@@ -543,7 +543,7 @@ impl CaptureDevice for CpalCaptureDevice {
                         };
                         if let Err(err) = &stream {
                             status_channel
-                                .send(StatusMessage::CaptureError(err.to_string()))
+                                .send(StatusMessage::CaptureError(err))
                                 .unwrap();
                         }
                         barrier.wait();
@@ -551,7 +551,7 @@ impl CaptureDevice for CpalCaptureDevice {
                             match strm.play() {
                                 Ok(_) => debug!("Starting capture loop"),
                                 Err(err) => status_channel
-                                    .send(StatusMessage::CaptureError(err.to_string()))
+                                    .send(StatusMessage::CaptureError(err))
                                     .unwrap(),
                             }
                         }
@@ -615,7 +615,7 @@ impl CaptureDevice for CpalCaptureDevice {
                                             }
                                             Err(err) => {
                                                 status_channel
-                                                    .send(StatusMessage::CaptureError(err.to_string()))
+                                                    .send(StatusMessage::CaptureError(err))
                                                     .unwrap();
                                             }
                                         }
@@ -636,7 +636,7 @@ impl CaptureDevice for CpalCaptureDevice {
                                             }
                                             Err(err) => {
                                                 status_channel
-                                                    .send(StatusMessage::CaptureError(err.to_string()))
+                                                    .send(StatusMessage::CaptureError(err))
                                                     .unwrap();
                                             }
                                         }
@@ -729,7 +729,7 @@ impl CaptureDevice for CpalCaptureDevice {
                     }
                     Err(err) => {
                         let send_result = status_channel
-                            .send(StatusMessage::CaptureError(err.to_string()));
+                            .send(StatusMessage::CaptureError(err));
                         if send_result.is_err() {
                             error!("Capture error: {}", err);
                         }

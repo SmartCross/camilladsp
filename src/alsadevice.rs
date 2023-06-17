@@ -512,7 +512,7 @@ fn playback_loop_bytes(
                     Err(msg) => {
                         channels
                             .status
-                            .send(StatusMessage::PlaybackError(msg.to_string()))
+                            .send(StatusMessage::PlaybackError(msg))
                             .unwrap_or(());
                         device_stalled
                     }
@@ -592,7 +592,7 @@ fn playback_loop_bytes(
                 error!("PB: Message channel error: {}", err);
                 channels
                     .status
-                    .send(StatusMessage::PlaybackError(err.to_string()))
+                    .send(StatusMessage::PlaybackError(Box::new(err)))
                     .unwrap_or(());
                 break;
             }
@@ -810,7 +810,7 @@ fn capture_loop_bytes(
             Err(msg) => {
                 channels
                     .status
-                    .send(StatusMessage::CaptureError(msg.to_string()))
+                    .send(StatusMessage::CaptureError(msg))
                     .unwrap_or(());
                 let msg = AudioMessage::EndOfStream;
                 channels.audio.send(msg).unwrap_or(());
@@ -966,10 +966,11 @@ impl PlaybackDevice for AlsaPlaybackDevice {
                         playback_loop_bytes(pb_channels, &pcmdevice, pb_params, &mut buf_manager);
                     }
                     Err(err) => {
+                        let msg = err.to_string();
                         let send_result =
-                            status_channel.send(StatusMessage::PlaybackError(err.to_string()));
+                            status_channel.send(StatusMessage::PlaybackError(err));
                         if send_result.is_err() {
-                            error!("Playback error: {}", err);
+                            error!("Playback error: {}", msg);
                         }
                         barrier.wait();
                     }
@@ -1063,10 +1064,11 @@ impl CaptureDevice for AlsaCaptureDevice {
                         );
                     }
                     Err(err) => {
+                        let msg = err.to_string();
                         let send_result =
-                            status_channel.send(StatusMessage::CaptureError(err.to_string()));
+                            status_channel.send(StatusMessage::CaptureError(err));
                         if send_result.is_err() {
-                            error!("Capture error: {}", err);
+                            error!("Capture error: {}", msg);
                         }
                         barrier.wait();
                     }

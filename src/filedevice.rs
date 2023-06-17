@@ -102,7 +102,7 @@ pub enum ReadResult {
 }
 
 pub trait Reader {
-    fn read(&mut self, data: &mut [u8]) -> Result<ReadResult, Box<dyn Error>>;
+    fn read(&mut self, data: &mut [u8]) -> Result<ReadResult, Box<dyn Error + Sync + Send>>;
 }
 
 /// Start a playback thread listening for AudioMessages via a channel.
@@ -154,7 +154,7 @@ impl PlaybackDevice for FilePlaybackDevice {
                                         Ok(_) => {}
                                         Err(err) => {
                                             status_channel
-                                                .send(StatusMessage::PlaybackError(err.to_string()))
+                                                .send(StatusMessage::PlaybackError(Box::new(err)))
                                                 .unwrap_or(());
                                         }
                                     };
@@ -189,7 +189,7 @@ impl PlaybackDevice for FilePlaybackDevice {
                                 Err(err) => {
                                     error!("Message channel error: {}", err);
                                     status_channel
-                                        .send(StatusMessage::PlaybackError(err.to_string()))
+                                        .send(StatusMessage::PlaybackError(Box::new(err)))
                                         .unwrap_or(());
                                     break;
                                 }
@@ -197,10 +197,11 @@ impl PlaybackDevice for FilePlaybackDevice {
                         }
                     }
                     Err(err) => {
+                        let msg = err.to_string();
                         let send_result =
-                            status_channel.send(StatusMessage::PlaybackError(err.to_string()));
+                            status_channel.send(StatusMessage::PlaybackError(Box::new(err)));
                         if send_result.is_err() {
-                            error!("Playback error: {}", err);
+                            error!("Playback error: {}", msg);
                         }
                         barrier.wait();
                     }
@@ -467,7 +468,7 @@ fn capture_loop(
                 debug!("Encountered a read error");
                 msg_channels
                     .status
-                    .send(StatusMessage::CaptureError(err.to_string()))
+                    .send(StatusMessage::CaptureError(err))
                     .unwrap_or(());
             }
         };
@@ -597,7 +598,7 @@ impl CaptureDevice for FileCaptureDevice {
                     CaptureSource::Stdin => Ok(Box::new(BlockingReader::new(stdin()))),
                 };
                 #[cfg(target_os = "linux")]
-                let file_res: Result<Box<dyn Reader>, Box<dyn Error>> = match source {
+                let file_res: Result<Box<dyn Reader>, Box<dyn Error + Sync + Send>> = match source {
                     CaptureSource::Filename(filename) => OpenOptions::new()
                         .read(true)
                         .custom_flags(nix::libc::O_NONBLOCK)
@@ -642,10 +643,11 @@ impl CaptureDevice for FileCaptureDevice {
                         capture_loop(file, params, msg_channels, resampler);
                     }
                     Err(err) => {
+                        let msg = err.to_string();
                         let send_result =
-                            status_channel.send(StatusMessage::CaptureError(err.to_string()));
+                            status_channel.send(StatusMessage::CaptureError(err));
                         if send_result.is_err() {
-                            error!("Capture error: {}", err);
+                            error!("Capture error: {}", msg);
                         }
                         barrier.wait();
                     }
