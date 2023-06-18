@@ -948,6 +948,7 @@ fn main_process() -> i32 {
         }
     }
 
+    let _ = sd_notify::notify(true, &[sd_notify::NotifyState::Ready]);
     loop {
         debug!("Wait for config");
 
