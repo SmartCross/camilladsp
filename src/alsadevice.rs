@@ -930,7 +930,7 @@ impl PlaybackDevice for AlsaPlaybackDevice {
         let mut buf_manager =
             PlaybackBufferManager::new(chunksize as Frames, target_level as Frames);
         let handle = thread::Builder::new()
-            .name("AlsaPlayback".to_string())
+            .name("CamillaDSP: AlsaPlayback".to_string())
             .spawn(move || {
                 match open_pcm(
                     devname,
@@ -1011,7 +1011,7 @@ impl CaptureDevice for AlsaCaptureDevice {
         );
 
         let handle = thread::Builder::new()
-            .name("AlsaCapture".to_string())
+            .name("CamillaDSP: AlsaCapture".to_string())
             .spawn(move || {
                 let resampler = new_resampler(
                     &resampler_config,

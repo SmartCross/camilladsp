@@ -120,7 +120,7 @@ impl PlaybackDevice for FilePlaybackDevice {
         let store_bytes_per_sample = self.sample_format.bytes_per_sample();
         let sample_format = self.sample_format;
         let handle = thread::Builder::new()
-            .name("FilePlayback".to_string())
+            .name("CamillaDSP: FilePlayback".to_string())
             .spawn(move || {
                 let file_res: Result<Box<dyn Write>, std::io::Error> = match destination {
                     PlaybackDest::Filename(filename) => {
@@ -565,7 +565,7 @@ impl CaptureDevice for FileCaptureDevice {
         let stop_on_rate_change = self.stop_on_rate_change;
         let rate_measure_interval = self.rate_measure_interval;
         let handle = thread::Builder::new()
-            .name("FileCapture".to_string())
+            .name("CamillaDSP: FileCapture".to_string())
             .spawn(move || {
                 let resampler = new_resampler(
                     &resampler_config,

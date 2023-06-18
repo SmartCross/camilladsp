@@ -610,7 +610,7 @@ impl PlaybackDevice for WasapiPlaybackDevice {
         let sample_format = self.sample_format;
         let sample_format_dev = self.sample_format;
         let handle = thread::Builder::new()
-            .name("WasapiPlayback".to_string())
+            .name("CamillaDSP: WasapiPlayback".to_string())
             .spawn(move || {
                 // Devices typically request around 1000 frames per buffer, set a reasonable capacity for the channel
                 let channel_capacity = 8 * 1024 / chunksize + 1;
@@ -635,7 +635,7 @@ impl PlaybackDevice for WasapiPlaybackDevice {
 
                 // wasapi device loop
                 let innerhandle = thread::Builder::new()
-                    .name("WasapiPlaybackInner".to_string())
+                    .name("CamillaDSP: WasapiPlaybackInner".to_string())
                     .spawn(move || {
                         let (_device, audio_client, render_client, handle, wave_format) =
                             match open_playback(
@@ -903,7 +903,7 @@ impl CaptureDevice for WasapiCaptureDevice {
         let stop_on_rate_change = self.stop_on_rate_change;
         let rate_measure_interval = (1000.0 * self.rate_measure_interval) as u64;
         let handle = thread::Builder::new()
-            .name("WasapiCapture".to_string())
+            .name("CamillaDSP: WasapiCapture".to_string())
             .spawn(move || {
                 let mut resampler = new_resampler(
                         &resampler_conf,
@@ -929,7 +929,7 @@ impl CaptureDevice for WasapiCaptureDevice {
                 let stop_signal = Arc::new(AtomicBool::new(false));
                 let stop_signal_inner = stop_signal.clone();
                 let innerhandle = thread::Builder::new()
-                    .name("WasapiCaptureInner".to_string())
+                    .name("CamillaDSP: WasapiCaptureInner".to_string())
                     .spawn(move || {
                         let (_device, audio_client, capture_client, handle, wave_format) =
                         match open_capture(&devname, capture_samplerate, channels, &sample_format_dev, exclusive, loopback) {

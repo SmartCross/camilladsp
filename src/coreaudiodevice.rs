@@ -349,7 +349,7 @@ impl PlaybackDevice for CoreaudioPlaybackDevice {
         let adjust_period = self.adjust_period;
         let adjust = self.adjust_period > 0.0 && self.enable_rate_adjust;
         let handle = thread::Builder::new()
-            .name("CoreaudioPlayback".to_string())
+            .name("CamillaDSP: CoreaudioPlayback".to_string())
             .spawn(move || {
                 // Devices typically request around 1000 frames per buffer, set a reasonable capacity for the channel
                 let channel_capacity = 8 * 1024 / chunksize + 1;
@@ -605,7 +605,7 @@ impl CaptureDevice for CoreaudioCaptureDevice {
         let blockalign = 4 * channels;
 
         let handle = thread::Builder::new()
-            .name("CoreaudioCapture".to_string())
+            .name("CamillaDSP: CoreaudioCapture".to_string())
             .spawn(move || {
                 let mut resampler = new_resampler(
                         &resampler_config,

@@ -143,7 +143,7 @@ impl PlaybackDevice for PulsePlaybackDevice {
         let store_bytes_per_sample = self.sample_format.bytes_per_sample();
         let sample_format = self.sample_format;
         let handle = thread::Builder::new()
-            .name("PulsePlayback".to_string())
+            .name("CamillaDSP: PulsePlayback".to_string())
             .spawn(move || {
                 match open_pulse(
                     devname,
@@ -294,7 +294,7 @@ impl CaptureDevice for PulseCaptureDevice {
         let silence_timeout = self.silence_timeout;
         let silence_threshold = self.silence_threshold;
         let handle = thread::Builder::new()
-            .name("PulseCapture".to_string())
+            .name("CamillaDSP: PulseCapture".to_string())
             .spawn(move || {
                 let mut resampler = new_resampler(
                         &resampler_config,

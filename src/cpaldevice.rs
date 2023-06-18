@@ -223,7 +223,7 @@ impl PlaybackDevice for CpalPlaybackDevice {
         let sample_format = self.sample_format;
         let playback_status_clone = playback_status.clone();
         let handle = thread::Builder::new()
-            .name("CpalPlayback".to_string())
+            .name("CamillaDSP: CpalPlayback".to_string())
             .spawn(move || {
                 match open_cpal_playback(host_cfg, &devname, samplerate, channels, &sample_format) {
                     Ok((device, stream_config, _sample_format)) => {
@@ -490,7 +490,7 @@ impl CaptureDevice for CpalCaptureDevice {
         let stop_on_rate_change = self.stop_on_rate_change;
         let rate_measure_interval = self.rate_measure_interval;
         let handle = thread::Builder::new()
-            .name("CpalCapture".to_string())
+            .name("CamillaDSP: CpalCapture".to_string())
             .spawn(move || {
                 let mut resampler = new_resampler(
                         &resampler_config,
