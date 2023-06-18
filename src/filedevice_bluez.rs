@@ -5,6 +5,7 @@ use std::sync::Arc;
 use zbus::blocking::Connection;
 use zbus::zvariant::OwnedFd;
 use zbus::Message;
+use nix::fcntl::*;
 
 use crate::filereader_nonblock::NonBlockingReader;
 
@@ -17,6 +18,10 @@ pub struct WrappedBluezFd {
 impl WrappedBluezFd {
     fn new_from_open_message(r: Arc<Message>) -> WrappedBluezFd {
         let (pipe_fd, ctrl_fd): (OwnedFd, OwnedFd) = r.body().unwrap();
+        let flag_i = fcntl(pipe_fd.as_raw_fd(), F_GETFL).unwrap();
+        let mut flag = OFlag::from_bits(flag_i).unwrap();
+        flag |= OFlag::O_NONBLOCK;
+       fcntl(pipe_fd.as_raw_fd(), F_SETFL(flag)).unwrap();
         return WrappedBluezFd {
             pipe_fd: pipe_fd,
             _ctrl_fd: ctrl_fd,
