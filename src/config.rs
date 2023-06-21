@@ -258,7 +258,7 @@ impl CaptureDeviceStdin {
 #[serde(deny_unknown_fields)]
 pub struct CaptureDeviceBluez {
     #[serde(default)]
-    service: Option<String>,
+    pub service: Option<String>,
     // TODO: Allow the user to specify mac address rather than D-Bus path
     pub dbus_path: String,
     // TODO: sample format, sample rate and channel count should be determined
